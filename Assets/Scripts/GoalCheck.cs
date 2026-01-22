@@ -13,7 +13,7 @@ public class GoalCheck : MonoBehaviour
         {
             if (GameManager.instance != null)
             {
-                GameManager.instance.ShowResult(prizeName);
+                GameManager.instance.ShowResult(prizeName, other.gameObject.name);
             }
         }
     }
