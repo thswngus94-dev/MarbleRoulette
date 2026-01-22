@@ -2,27 +2,21 @@ using UnityEngine;
 
 public class GoalCheck : MonoBehaviour
 {
-    public string winner = "WINNER";
-    private bool isGameFinished = false;
+    public string prizeName = "WINNER";
+    
 
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // ���� ������Ʈ�� �±װ� "Marble"���� Ȯ��
+        // 태그 확인
         if (other.CompareTag("Player"))
         {
-            // ������ ���� ������ ���� (�ӵ��� 0���� ����� ������ų ���� ����)
-            Rigidbody2D marbleRb = other.GetComponent<Rigidbody2D>();
-            if (marbleRb != null)
+            if (GameManager.instance != null)
             {
-                marbleRb.linearVelocity = Vector2.zero; // ���� ����
-                marbleRb.isKinematic = true;      // ���� ���� ���� (����)
+                GameManager.instance.ShowResult(prizeName);
             }
-
-            // ��� ���
-            Debug.Log("WINNER" + "xxx");
-
-            // ���⿡ ���߿� UI ���â�� ���� �ڵ带 �߰��� �����Դϴ�.
         }
     }
+
+
 }
