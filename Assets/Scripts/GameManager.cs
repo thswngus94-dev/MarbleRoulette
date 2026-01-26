@@ -65,14 +65,10 @@ public class GameManager : MonoBehaviour
         playerCountInput.onValueChanged.AddListener(delegate { OnInputChanged(); });
     }
 
-    void Update()
-    {
-        // 게임 중일 때만 실시간 랭킹 업데이트
-        if (!isGameOver && activePlayers.Count > 0)
-        {
-            UpdateRanking();
-        }
-    }
+
+    //-------------------------------------------------------
+    // 구슬 소환 및 이름 관리 (OnInputChanged, UpdatePlayerList)
+    // 입력 : 이름 입력 >> 구슬 자동생성
 
     // 숫자가 바뀔 때마다 호출되는 함수
     public void OnInputChanged()
@@ -173,7 +169,7 @@ public class GameManager : MonoBehaviour
         Vector3 pos = spawnPoint.position + new Vector3(col * spacingX, -row * spacingY, 0);
 
         GameObject newPlayer = Instantiate(playerPrefab, pos, Quaternion.identity);
-        
+
 
         Rigidbody2D rb = newPlayer.GetComponent<Rigidbody2D>();
         if (rb != null) rb.bodyType = RigidbodyType2D.Kinematic; // 고정 상태
@@ -192,6 +188,24 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    
+
+    // 기존 구슬들을 완전히 삭제하는 안전한 함수 추가
+    void ClearAllPlayers()
+    {
+        foreach (GameObject player in activePlayers)
+        {
+            if (player != null)
+            {
+                Destroy(player);
+            }
+        }
+        activePlayers.Clear(); // 리스트 비우기
+
+    }
+
+    //-------------------------------------------------------
+    // 게임 실행 및 물리
     // 버튼을 눌렀을 때 실행될 함수 / 게임 시작 버튼
     public void OnSpawnButtonClick()
     {
@@ -206,7 +220,6 @@ public class GameManager : MonoBehaviour
         StartCoroutine(StartGameCoroutine());
         spawnButton.interactable = false;
     }
-
     // 구슬 위치 섞기 함수
     public void OnShuffleButtonClick()
     {
@@ -244,23 +257,7 @@ public class GameManager : MonoBehaviour
         }
 
     }
-
-
-    // 기존 구슬들을 완전히 삭제하는 안전한 함수 추가
-    void ClearAllPlayers()
-    {
-        foreach (GameObject player in activePlayers)
-        {
-            if (player != null)
-            {
-                Destroy(player);
-            }
-        }
-        activePlayers.Clear(); // 리스트 비우기
-
-    }
-
-    // 대기/발사 로직
+    // 대기/발사
     IEnumerator StartGameCoroutine()
     {
         // 구슬 발사 1.5초 대기
@@ -285,6 +282,49 @@ public class GameManager : MonoBehaviour
 
         // 실시간으로 1등을 추적하는 루틴 시작
         StartCoroutine(TrackLeadPlayer());
+    }
+
+    //-------------------------------------------------------
+    // 실시간 랭킹 갱신 : 1등 추적 카메라 + 실시간 랭킹 업데이트.
+    void Update()
+    {
+        // 게임 중일 때만 실시간 랭킹 업데이트
+        if (!isGameOver && activePlayers.Count > 0)
+        {
+            UpdateRanking();
+        }
+    }
+    void UpdateRanking()
+    {
+        // 살아있는 플레이어 정렬
+        var sortedPlayers = activePlayers
+            .Where(p => p != null)
+            .OrderBy(p => p.transform.position.y)
+            .ToList();
+
+
+        // sortedPlayers.Count = 현재 맵에 존재하는 구슬의 총 개수  // (완주자수 / 전체참가자수)
+        string rankingString = $" ({finishedCount} / {sortedPlayers.Count})\n";
+
+        // 리스트 부분: 이름 #순위
+        int showLimit = Mathf.Min(displayCount, sortedPlayers.Count);
+
+        for (int i = 0; i < showLimit; i++)
+        {
+            string pName = sortedPlayers[i].name;
+            Player info = sortedPlayers[i].GetComponent<Player>();
+
+            if (info != null && info.ballSprite != null)
+            {
+                string colorHex = ColorUtility.ToHtmlStringRGB(info.ballSprite.color);
+
+                //  "누구누구 #순위"
+                rankingString += $"<color=#{colorHex}>{pName} #{i + 1}</color>\n";
+            }
+        }
+
+        // UI 적용
+        rankingText.text = rankingString;
     }
 
     IEnumerator TrackLeadPlayer()
@@ -322,7 +362,6 @@ public class GameManager : MonoBehaviour
             yield return new WaitForSeconds(0.5f); // 0.5초마다 1등을 갱신해서 카메라 타겟 변경
         }
     }
-
     void StartSlowMotion()
     {
         isSlowMotionActive = true;
@@ -337,20 +376,8 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1.0f;
         Time.fixedDeltaTime = 0.02f;
     }
-
-    // 실시간 랭킹 갱신
-    IEnumerator RankUpdateLoop()
-    {
-        while (!isGameOver)
-        {
-            UpdateRanking();
-            yield return new WaitForSeconds(0.2f); // 0.2초마다 갱신
-        }
-    }
-
-
-
-    // 골인 지점에서 호출할 함수 (당첨된 오브젝트를 매개변수로 받음)
+    //-------------------------------------------------------
+    //결과 및 종료 함수
     public void ShowResult(string winner, GameObject winnerObj)
     {
         if (!isGameOver)
@@ -391,39 +418,6 @@ public class GameManager : MonoBehaviour
 
             if (shuffleButton != null) shuffleButton.interactable = true;
         }
-    }
-
-    void UpdateRanking()
-    {
-        // 살아있는 플레이어 정렬
-        var sortedPlayers = activePlayers
-            .Where(p => p != null)
-            .OrderBy(p => p.transform.position.y)
-            .ToList();
-
-
-        // sortedPlayers.Count = 현재 맵에 존재하는 구슬의 총 개수  // (완주자수 / 전체참가자수)
-        string rankingString = $" ({finishedCount} / {sortedPlayers.Count})\n";
-
-        // 리스트 부분: 이름 #순위
-        int showLimit = Mathf.Min(displayCount, sortedPlayers.Count);
-
-        for (int i = 0; i < showLimit; i++)
-        {
-            string pName = sortedPlayers[i].name;
-            Player info = sortedPlayers[i].GetComponent<Player>();
-
-            if (info != null && info.ballSprite != null)
-            {
-                string colorHex = ColorUtility.ToHtmlStringRGB(info.ballSprite.color);
-
-                //  "누구누구 #순위"
-                rankingString += $"<color=#{colorHex}>{pName} #{i + 1}</color>\n";
-            }
-        }
-
-        // UI 적용
-        rankingText.text = rankingString;
     }
 
     public void OnGoalReached()
